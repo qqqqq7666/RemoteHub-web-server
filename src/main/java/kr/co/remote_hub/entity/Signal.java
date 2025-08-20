@@ -25,7 +25,6 @@ public class Signal {
     public SignalDto toDto() {
         return SignalDto.builder()
                 .signal(signal)
-                .device(device)
                 .build();
     }
 

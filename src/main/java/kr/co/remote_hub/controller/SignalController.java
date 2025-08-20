@@ -19,9 +19,9 @@ public class SignalController {
     private final SignalService signalService;
 
     @PostMapping
-    public ResponseEntity<SignalDto> registerSignal(@RequestBody SignalDto signalDto) {
+    public ResponseEntity<SignalDto> saveSignal(@RequestBody SignalDto signalDto) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .location(URI.create("register success URL"))
+                .location(URI.create("http://localhost:8080"))
                 .body(signalService.saveSignal(signalDto));
     }
 }
