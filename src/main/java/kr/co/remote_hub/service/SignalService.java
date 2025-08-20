@@ -13,7 +13,7 @@ import java.util.List;
 public class SignalService {
     private final SignalRepository signalRepository;
 
-    public Signal saveSignal(SignalDto signalDto) {
-        return signalRepository.save(signalDto.toEntity());
+    public SignalDto saveSignal(SignalDto signalDto) {
+        return signalRepository.save(signalDto.toEntity()).toDto();
     }
 }

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>ESP32 WiFi Provisioning</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    input, select { margin: 5px 0; padding: 5px; width: 250px; }
+    button { padding: 6px 12px; margin: 5px; }
+  </style>
+</head>
+<body>
+<h1>ESP32 WiFi Provisioning</h1>
+
+<button id="connectBtn">🔗 ESP32 연결</button><br><br>
+
+<label>WiFi 목록:<br>
+  <select id="wifiListSelect">
+    <option value="">WiFi 네트워크 선택...</option>
+  </select>
+</label><br>
+
+<label>SSID:<br>
+  <input type="text" id="ssidInput" placeholder="WiFi SSID">
+</label><br>
+
+<label>Password:<br>
+  <input type="password" id="passInput" placeholder="WiFi Password">
+</label><br>
+
+<button id="sendBtn">📡 전송</button>
+
+<pre id="log"></pre>
+
+<script>
+  const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
+  const SSID_CHAR_UUID = "abcd1234-5678-90ab-cdef-1234567890ab";
+  const PASS_CHAR_UUID = "abcd5678-1234-90ab-cdef-1234567890ab";
+  const SCAN_RESULT_UUID = "abcd9999-1234-90ab-cdef-1234567890ab";
+
+  let ssidCharacteristic;
+  let passCharacteristic;
+  let scanResultCharacteristic;
+  const logArea = document.getElementById("log");
+  const wifiListSelect = document.getElementById("wifiListSelect");
+
+  function log(msg) {
+    logArea.textContent += msg + "\n";
+  }
+
+  function updateWiFiList(wifiString) {
+    const networks = wifiString.split("\n").filter(n => n.trim().length > 0);
+    wifiListSelect.innerHTML = `<option value="">WiFi 네트워크 선택...</option>`;
+    networks.forEach(net => {
+      const option = document.createElement("option");
+      option.value = net;
+      option.textContent = net;
+      wifiListSelect.appendChild(option);
+    });
+    log("📋 WiFi 목록 업데이트 완료");
+  }
+
+  async function connectESP32() {
+    try {
+      log("🔍 BLE 기기 검색 중...");
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ services: [SERVICE_UUID] }]
+      });
+
+      log(`✅ 기기 선택됨: ${device.name}`);
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService(SERVICE_UUID);
+
+      ssidCharacteristic = await service.getCharacteristic(SSID_CHAR_UUID);
+      passCharacteristic = await service.getCharacteristic(PASS_CHAR_UUID);
+      scanResultCharacteristic = await service.getCharacteristic(SCAN_RESULT_UUID);
+
+      log("📡 ESP32 BLE 서비스 연결 완료");
+
+      // 초기 목록 읽기
+      const value = await scanResultCharacteristic.readValue();
+      updateWiFiList(new TextDecoder().decode(value));
+
+      // 변경 알림(Notify) 구독
+      scanResultCharacteristic.addEventListener('characteristicvaluechanged', (event) => {
+        const value = new TextDecoder().decode(event.target.value);
+        updateWiFiList(value);
+      });
+      await scanResultCharacteristic.startNotifications();
+
+    } catch (error) {
+      log(`❌ 연결 실패: ${error}`);
+    }
+  }
+
+  async function sendWiFiCredentials(ssid, password) {
+    if (!ssidCharacteristic || !passCharacteristic) {
+      log("⚠️ 먼저 연결을 해주세요");
+      return;
+    }
+    try {
+      await ssidCharacteristic.writeValue(new TextEncoder().encode(ssid));
+      log(`📤 SSID 전송: ${ssid}`);
+
+      await passCharacteristic.writeValue(new TextEncoder().encode(password));
+      log("📤 Password 전송 완료");
+    } catch (error) {
+      log(`❌ 전송 실패: ${error}`);
+    }
+  }
+
+  wifiListSelect.addEventListener("change", () => {
+    document.getElementById("ssidInput").value = wifiListSelect.value;
+  });
+
+  document.getElementById("connectBtn").addEventListener("click", connectESP32);
+  document.getElementById("sendBtn").addEventListener("click", () => {
+    const ssid = document.getElementById("ssidInput").value;
+    const pass = document.getElementById("passInput").value;
+    sendWiFiCredentials(ssid, pass);
+  });
+</script>
+</body>
+</html>
